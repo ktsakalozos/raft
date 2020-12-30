@@ -89,6 +89,8 @@ static void uvPrepareFinishAllRequests(struct uv *uv, int status)
         head = QUEUE_HEAD(&uv->prepare_reqs);
         req = QUEUE_DATA(head, struct uvPrepare, queue);
         QUEUE_REMOVE(&req->queue);
+        printf("cb called by uvPrepareFinishAllRequests\n"); fflush(stdout);
+
         req->cb(req, status);
     }
 }
@@ -127,6 +129,7 @@ static void uvPrepareFinishOldestRequest(struct uv *uv)
 
     /* Finish the request */
     uvPrepareConsume(uv, &req->fd, &req->counter);
+    printf("cb called by uvPrepareFinishOldestRequest\n"); fflush(stdout);
     req->cb(req, 0);
 }
 

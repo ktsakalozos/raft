@@ -13,4 +13,6 @@ void *HeapRealloc(void *ptr, size_t size);
 
 void HeapFree(void *ptr);
 
+void Print_call_stack(void);
+
 #endif /* HEAP_H_ */

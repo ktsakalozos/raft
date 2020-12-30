@@ -112,6 +112,7 @@ bool progressShouldReplicate(struct raft *r, unsigned i)
     bool needs_heartbeat = now - p->last_send >= r->heartbeat_timeout;
     raft_index last_index = logLastIndex(&r->log);
     bool result = false;
+    bool pres = false;
 
     /* We must be in a valid state. */
     assert(p->state == PROGRESS__PROBE || p->state == PROGRESS__PIPELINE ||
@@ -128,15 +129,19 @@ bool progressShouldReplicate(struct raft *r, unsigned i)
              *
              * TODO: rollback to probe if we don't hear anything for a while. */
             result = false;
+            printf("State for %llu is PROGRESS__SNAPSHOT heartbeat %d\n", r->configuration.servers[i].id, needs_heartbeat);fflush(stdout);
             break;
         case PROGRESS__PROBE:
             /* We send at most one message per heartbeat interval. */
+            printf("State for %llu is PROGRESS__PROBE heartbeat %d\n", r->configuration.servers[i].id, needs_heartbeat);fflush(stdout);
             result = needs_heartbeat;
             break;
         case PROGRESS__PIPELINE:
             /* In replication mode we send empty append entries messages only if
              * haven't sent anything in the last heartbeat interval. */
-            result = !progressIsUpToDate(r, i) || needs_heartbeat;
+            pres = progressIsUpToDate(r, i);
+            result = !pres || needs_heartbeat;
+            printf("State for %llu is PROGRESS__PIPELINE progress is upto date %d heartbeat %d\n", r->configuration.servers[i].id, pres, needs_heartbeat);fflush(stdout);
             break;
     }
     return result;
@@ -272,6 +277,8 @@ void progressToProbe(struct raft *r, const unsigned i)
     } else {
         p->next_index = p->match_index + 1;
     }
+    printf("progressToProbe set state to PROGRESS__PROBE for %llu\n", r->configuration.servers[i].id);
+    fflush(stdout);
     p->state = PROGRESS__PROBE;
 }
 

@@ -35,6 +35,8 @@ static void uvWriterReqFinish(struct UvWriterReq *req)
     if (req->status != 0) {
         uvWriterReqTransferErrMsg(req);
     }
+    printf("cb called by uvWriterReqFinish\n"); fflush(stdout);
+
     req->cb(req, req->status);
 }
 

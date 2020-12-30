@@ -1,6 +1,10 @@
 #include "heap.h"
 
 #include <stdlib.h>
+#include <unistd.h>
+
+#include <execinfo.h>
+#include <stdio.h>
 
 #include "../include/raft.h"
 
@@ -52,8 +56,37 @@ static struct raft_heap defaultHeap = {
 
 static struct raft_heap *currentHeap = &defaultHeap;
 
+void Print_call_stack(void)
+{
+    int j, nptrs;
+#define SIZE 100
+    void *buffer[100];
+    char **strings;
+
+    nptrs = backtrace(buffer, SIZE);
+    printf("backtrace() returned %d addresses\n", nptrs);
+
+    /* The call backtrace_symbols_fd(buffer, nptrs, STDOUT_FILENO)
+        would produce similar output to the following: */
+
+    strings = backtrace_symbols(buffer, nptrs);
+    if (strings == NULL) {
+        perror("backtrace_symbols");
+        return;
+    }
+
+    for (j = 0; j < nptrs; j++)
+        printf("%s\n", strings[j]);
+
+    free(strings);
+}
+
 void *HeapMalloc(size_t size)
 {
+    if (size > (20*1024*1024)){
+          printf("%d: HealMalloc (inside) %lu\n", getpid(), size); fflush(stdout);
+          Print_call_stack();
+    }
     return currentHeap->malloc(currentHeap->data, size);
 }
 
@@ -67,6 +100,9 @@ void HeapFree(void *ptr)
 
 void *HeapCalloc(size_t nmemb, size_t size)
 {
+    if (size > (10*1024*1024)){
+        printf("%d: HealCalloc (inside) %lu\n", getpid(), size); fflush(stdout);
+    }
     return currentHeap->calloc(currentHeap->data, nmemb, size);
 }
 

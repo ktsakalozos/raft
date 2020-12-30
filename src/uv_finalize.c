@@ -93,7 +93,9 @@ static void uvFinalizeAfterWorkCb(uv_work_t *work, int status)
      * barrier to unblock or if we are done closing. */
     if (QUEUE_IS_EMPTY(&uv->finalize_reqs)) {
         if (uv->barrier != NULL) {
+            printf("cb called by uvFinalizeAfterWorkCb\n"); fflush(stdout);
             uv->barrier->cb(uv->barrier);
+            printf("done calling cb from uvFinalizeAfterWorkCb\n"); fflush(stdout);
         }
         uvMaybeFireCloseCb(uv);
         return;

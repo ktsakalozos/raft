@@ -704,6 +704,7 @@ int UvBarrier(struct uv *uv,
               struct UvBarrier *barrier,
               UvBarrierCb cb)
 {
+    printf("Calling UvBarrier\n"); fflush(stdout);
     queue *head;
 
     assert(!uv->closing);
@@ -740,10 +741,12 @@ int UvBarrier(struct uv *uv,
         if (QUEUE_IS_EMPTY(&uv->append_segments) &&
             QUEUE_IS_EMPTY(&uv->finalize_reqs) &&
             uv->finalize_work.data == NULL) {
+            printf("About to call cb barrier"); fflush(stdout);
             barrier->cb(barrier);
         }
     }
 
+    printf("Done with UvBarrier\n"); fflush(stdout);
     return 0;
 }
 
@@ -777,6 +780,8 @@ static void uvBarrierClose(struct uv *uv)
         segment = QUEUE_DATA(head, struct uvAliveSegment, queue);
         if (segment->barrier != NULL && segment->barrier != barrier) {
             barrier = segment->barrier;
+            printf("cb called by uvBarrierClose 1\n"); fflush(stdout);
+
             barrier->cb(barrier);
             if (segment->barrier == uv->barrier) {
                 uv->barrier = NULL;
@@ -790,6 +795,8 @@ static void uvBarrierClose(struct uv *uv)
      * and is not anymore in the append_segments queue. Let's cancel that
      * too. */
     if (uv->barrier != NULL) {
+        printf("cb called by uvBarrierClose 2\n"); fflush(stdout);
+
         uv->barrier->cb(uv->barrier);
         uv->barrier = NULL;
     }

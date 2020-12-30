@@ -77,7 +77,7 @@ struct raft_uv_transport;
  * [4 bytes] CRC32 checksum of the batch data, little endian.
  * [  ...  ] Batch (as described in @raft_decode_entries_batch).
  *
- * [0] https://github.com/logcabin/logcabin/blob/master/Storage/SegmentedLog.h
+ * [0] https://github.com/logcabin/logcabin/b   lob/master/Storage/SegmentedLog.h
  */
 RAFT_API int raft_uv_init(struct raft_io *io,
                           struct uv_loop_s *loop,

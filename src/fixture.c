@@ -236,6 +236,8 @@ static void ioFlushAppend(struct io *s, struct append *append)
     s->n += append->n;
 
     if (append->req->cb != NULL) {
+        printf("cb called by ioFlushAppend\n"); fflush(stdout);
+
         append->req->cb(append->req, 0);
     }
     raft_free(append);
@@ -262,6 +264,7 @@ static void ioFlushSnapshotPut(struct io *s, struct snapshot_put *r)
     }
 
     if (r->req->cb != NULL) {
+        printf("Is it possible we call uvSnapshotPutBarrierCb from here?\n"); fflush(stdout);
         r->req->cb(r->req, 0);
     }
     raft_free(r);
@@ -277,6 +280,7 @@ static void ioFlushSnapshotGet(struct io *s, struct snapshot_get *r)
     assert(snapshot != NULL);
     rv = snapshotCopy(s->snapshot, snapshot);
     assert(rv == 0);
+    printf("cb called by ioFlushSnapshotGet\n"); fflush(stdout);
     r->req->cb(r->req, snapshot, 0);
     raft_free(r);
 }
@@ -361,6 +365,8 @@ static void ioFlushSend(struct io *io, struct send *send)
 
 out:
     if (send->req->cb != NULL) {
+        printf("cb called by ioFlushSend\n"); fflush(stdout);
+
         send->req->cb(send->req, status);
     }
 

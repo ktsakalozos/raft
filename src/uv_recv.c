@@ -142,6 +142,9 @@ static void uvServerAllocCb(uv_handle_t *handle,
             assert(s->header.len > 0);
             assert(s->header.base == NULL);
             s->header.base = HeapMalloc(s->header.len);
+            if (s->header.len > (10*1024*1024)) {
+                printf("HealMalloc %lu\n", s->header.len); fflush(stdout);
+            }
             if (s->header.base == NULL) {
                 /* Setting all buffer fields to 0 will make read_cb fail with
                  * ENOBUFS. */
@@ -155,6 +158,9 @@ static void uvServerAllocCb(uv_handle_t *handle,
         /* If we get here we should be expecting the payload. */
         assert(s->payload.len > 0);
         s->payload.base = HeapMalloc(s->payload.len);
+        if (s->header.len > (10*1024*1024)){
+              printf("HealMalloc (2) %lu\n", s->header.len); fflush(stdout);
+        }
         if (s->payload.base == NULL) {
             /* Setting all buffer fields to 0 will make read_cb fail with
              * ENOBUFS. */

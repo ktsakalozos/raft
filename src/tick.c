@@ -182,6 +182,8 @@ static int tickLeader(struct raft *r)
             change = r->leader_state.change;
             r->leader_state.change = NULL;
             if (change != NULL && change->cb != NULL) {
+                printf("cb called by tickLeader\n"); fflush(stdout);
+
                 change->cb(change, RAFT_NOCONNECTION);
             }
         }

@@ -136,6 +136,7 @@ static void uvClientMaybeDestroy(struct uvClient *c)
         req = send->req;
         uvSendDestroy(send);
         if (req->cb != NULL) {
+            printf("cb called by uvClientMaybeDestroy\n"); fflush(stdout);
             req->cb(req, RAFT_CANCELED);
         }
     }
@@ -203,6 +204,7 @@ static void uvSendWriteCb(struct uv_write_s *write, const int status)
     uvSendDestroy(send);
 
     if (req->cb != NULL) {
+        printf("cb called by uvSendWriteCb\n"); fflush(stdout);
         req->cb(req, cb_status);
     }
 }
@@ -249,6 +251,7 @@ static void uvClientSendPending(struct uvClient *c)
         rv = uvClientSend(c, send);
         if (rv != 0) {
             if (send->req->cb != NULL) {
+                printf("cb called by uvClientSendPending\n"); fflush(stdout);
                 send->req->cb(send->req, rv);
             }
             uvSendDestroy(send);
@@ -329,6 +332,7 @@ static void uvClientConnectCb(struct raft_uv_connect *req,
             old_req = old_send->req;
             uvSendDestroy(old_send);
             if (old_req->cb != NULL) {
+                printf("cb called by uvClientConnectCb\n"); fflush(stdout);
                 old_req->cb(old_req, RAFT_NOCONNECTION);
             }
         }

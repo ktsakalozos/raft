@@ -10,6 +10,7 @@
 #include "uv.h"
 #include "uv_encoding.h"
 #include "uv_os.h"
+#include "heap.h"
 
 #if 0
 #define tracef(...) Tracef(c->uv->tracer, __VA_ARGS__)
@@ -394,6 +395,8 @@ out:
 
 static void uvSnapshotPutWorkCb(uv_work_t *work)
 {
+    printf("uvSnapshotPutWorkCb called\n"); fflush(stdout);
+
     struct uvSnapshotPut *put = work->data;
     struct uv *uv = put->uv;
     char metadata[UV__FILENAME_LEN];
@@ -434,29 +437,36 @@ static void uvSnapshotPutWorkCb(uv_work_t *work)
                                          put->trailing, put->errmsg);
     if (rv != 0) {
         put->status = rv;
+        printf("Done with uvSnapshotPutWorkCb called (rv != 0)\n"); fflush(stdout);
         return;
     }
 
     put->status = 0;
+    printf("Done with uvSnapshotPutWorkCb called\n"); fflush(stdout);
 
-    return;
 }
 
 /* Finish the put request, releasing all associated memory and invoking its
  * callback. */
 static void uvSnapshotPutFinish(struct uvSnapshotPut *put)
 {
+    printf("uvSnapshotPutFinish called\n"); fflush(stdout);
     struct raft_io_snapshot_put *req = put->req;
     int status = put->status;
     struct uv *uv = put->uv;
     assert(uv->snapshot_put_work.data == NULL);
     HeapFree(put->meta.bufs[1].base);
     HeapFree(put);
+    printf("==========> Callling CB\n"); fflush(stdout);
     req->cb(req, status);
+    printf("<========== Done\n"); fflush(stdout);
+    printf("Done with uvSnapshotPutFinish called\n"); fflush(stdout);
+
 }
 
 static void uvSnapshotPutAfterWorkCb(uv_work_t *work, int status)
 {
+    printf("uvSnapshotPutAfterWorkCb called\n"); fflush(stdout);
     struct uvSnapshotPut *put = work->data;
     struct uv *uv = put->uv;
     bool is_install = put->trailing == 0;
@@ -467,11 +477,13 @@ static void uvSnapshotPutAfterWorkCb(uv_work_t *work, int status)
         UvUnblock(uv);
     }
     uvMaybeFireCloseCb(uv);
+    printf("Done with uvSnapshotPutAfterWorkCb called\n"); fflush(stdout);
 }
 
 /* Start processing the given put request. */
 static void uvSnapshotPutStart(struct uvSnapshotPut *put)
 {
+    printf("uvSnapshotPutStart called\n"); fflush(stdout);
     struct uv *uv = put->uv;
     int rv;
 
@@ -488,12 +500,21 @@ static void uvSnapshotPutStart(struct uvSnapshotPut *put)
                uv_strerror(rv));
         uv->errored = true;
     }
+    printf("Done with uvSnapshotPutStart called\n"); fflush(stdout);
 }
 
 static void uvSnapshotPutBarrierCb(struct UvBarrier *barrier)
 {
+    pthread_t pt = pthread_self();
+    printf("%lu: Calling uvSnapshotPutBarrierCb\n", pt); fflush(stdout);
     struct uvSnapshotPut *put = barrier->data;
+    printf("In uvSnapshotPutBarrierCb\n"); fflush(stdout);
+    if (put == NULL){
+        printf("In uvSnapshotPutBarrierCb put request is NULL\n"); fflush(stdout);
+        return;
+    }
     struct uv *uv = put->uv;
+    printf("In uvSnapshotPutBarrierCb here\n"); fflush(stdout);
     assert(put->trailing == 0);
     put->barrier.data = NULL;
     /* If we're closing, abort the request. */
@@ -501,9 +522,11 @@ static void uvSnapshotPutBarrierCb(struct UvBarrier *barrier)
         put->status = RAFT_CANCELED;
         uvSnapshotPutFinish(put);
         uvMaybeFireCloseCb(uv);
+        printf("Done with uvSnapshotPutBarrierCb called (closing)\n"); fflush(stdout);
         return;
     }
     uvSnapshotPutStart(put);
+    printf("Done with uvSnapshotPutBarrierCb called\n"); fflush(stdout);
 }
 
 int UvSnapshotPut(struct raft_io *io,
@@ -512,6 +535,7 @@ int UvSnapshotPut(struct raft_io *io,
                   const struct raft_snapshot *snapshot,
                   raft_io_snapshot_put_cb cb)
 {
+    printf("UvSnapshotPut called\n"); fflush(stdout);
     struct uv *uv;
     struct uvSnapshotPut *put;
     void *cursor;
@@ -522,6 +546,7 @@ int UvSnapshotPut(struct raft_io *io,
     assert(!uv->closing);
     assert(uv->snapshot_put_work.data == NULL);
 
+    printf("put snapshot at %lld, keeping %d\n", snapshot->index, trailing);fflush(stdout);
     tracef("put snapshot at %lld, keeping %d", snapshot->index, trailing);
 
     put = HeapMalloc(sizeof *put);
@@ -544,6 +569,7 @@ int UvSnapshotPut(struct raft_io *io,
 
     rv = configurationEncode(&snapshot->configuration, &put->meta.bufs[1]);
     if (rv != 0) {
+        printf("Error after request allocation\n"); fflush(stdout);
         goto err_after_req_alloc;
     }
 
@@ -566,12 +592,15 @@ int UvSnapshotPut(struct raft_io *io,
         rv = UvBarrier(uv, snapshot->index + 1, &put->barrier,
                        uvSnapshotPutBarrierCb);
         if (rv != 0) {
+            printf("Error after configuration encode\n"); fflush(stdout);
             goto err_after_configuration_encode;
         }
     } else {
+
         uvSnapshotPutStart(put);
     }
 
+    printf("Done with UvSnapshotPut called\n"); fflush(stdout);
     return 0;
 
 err_after_configuration_encode:
@@ -580,11 +609,13 @@ err_after_req_alloc:
     HeapFree(put);
 err:
     assert(rv != 0);
+    printf("Done with UvSnapshotPut called (free error)\n"); fflush(stdout);
     return rv;
 }
 
 static void uvSnapshotGetWorkCb(uv_work_t *work)
 {
+    printf("uvSnapshotGetWorkCb called\n"); fflush(stdout);
     struct uvSnapshotGet *get = work->data;
     struct uv *uv = get->uv;
     struct uvSnapshotInfo *snapshots;
@@ -611,11 +642,14 @@ static void uvSnapshotGetWorkCb(uv_work_t *work)
         HeapFree(segments);
     }
 out:
+    printf("Done with uvSnapshotGetWorkCb called\n"); fflush(stdout);
     return;
 }
 
 static void uvSnapshotGetAfterWorkCb(uv_work_t *work, int status)
 {
+    printf("uvSnapshotGetAfterWorkCb called\n"); fflush(stdout);
+
     struct uvSnapshotGet *get = work->data;
     struct raft_io_snapshot_get *req = get->req;
     struct raft_snapshot *snapshot = get->snapshot;
@@ -624,6 +658,8 @@ static void uvSnapshotGetAfterWorkCb(uv_work_t *work, int status)
     assert(status == 0);
     QUEUE_REMOVE(&get->queue);
     HeapFree(get);
+    printf("cb called by uvSnapshotGetAfterWorkCb\n"); fflush(stdout);
+
     req->cb(req, snapshot, req_status);
     uvMaybeFireCloseCb(uv);
 }
@@ -632,6 +668,8 @@ int UvSnapshotGet(struct raft_io *io,
                   struct raft_io_snapshot_get *req,
                   raft_io_snapshot_get_cb cb)
 {
+    printf("UvSnapshotGet called\n"); fflush(stdout);
+
     struct uv *uv;
     struct uvSnapshotGet *get;
     int rv;

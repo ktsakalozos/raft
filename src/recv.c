@@ -33,6 +33,7 @@ static int recvMessage(struct raft *r, struct raft_message *message)
         return 0;
     }
 
+    //printf("%d from server %llu\n", message->type, message->server_id);fflush(stdout);
     /* tracef("%s from server %ld", message_descs[message->type - 1],
        message->server_id); */
 

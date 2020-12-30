@@ -51,6 +51,7 @@ static int uvInit(struct raft_io *io, raft_id id, const char *address)
     if (rv != 0) {
         return rv;
     }
+
     uv->direct_io = direct_io != 0;
     uv->block_size = direct_io != 0 ? direct_io : 4096;
 

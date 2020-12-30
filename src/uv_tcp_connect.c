@@ -66,6 +66,8 @@ static void uvTcpConnectFinish(struct uvTcpConnect *connect)
     QUEUE_REMOVE(&connect->queue);
     HeapFree(connect->handshake.base);
     raft_free(connect);
+    printf("cb called by uvTcpConnectFinish\n"); fflush(stdout);
+
     req->cb(req, stream, status);
 }
 

@@ -63,6 +63,7 @@ static void convertFailApply(struct raft_apply *req)
 static void convertFailBarrier(struct raft_barrier *req)
 {
     if (req != NULL && req->cb != NULL) {
+        printf("cb called by convertFailBarrier\n"); fflush(stdout);
         req->cb(req, RAFT_LEADERSHIPLOST);
     }
 }
@@ -70,6 +71,7 @@ static void convertFailBarrier(struct raft_barrier *req)
 static void convertFailChange(struct raft_change *req)
 {
     if (req != NULL && req->cb != NULL) {
+        printf("cb called by convertFailChange\n"); fflush(stdout);
         req->cb(req, RAFT_LEADERSHIPLOST);
     }
 }
@@ -140,6 +142,7 @@ void convertToFollower(struct raft *r)
 
 int convertToCandidate(struct raft *r, bool disrupt_leader)
 {
+    printf("convertToCandidate called\n");fflush(stdout);
     const struct raft_server *server;
     size_t n_voters = configurationVoterCount(&r->configuration);
     int rv;

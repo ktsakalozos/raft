@@ -25,6 +25,7 @@ int recvInstallSnapshot(struct raft *r,
                         const char *address,
                         struct raft_install_snapshot *args)
 {
+    printf("Calling recvInstallSnapshot\n");fflush(stdout);
     struct raft_io_send *req;
     struct raft_message message;
     struct raft_append_entries_result *result = &message.append_entries_result;
@@ -64,10 +65,12 @@ int recvInstallSnapshot(struct raft *r,
 
     rv = replicationInstallSnapshot(r, args, &result->rejected, &async);
     if (rv != 0) {
+        printf("Done with recvInstallSnapshot (rv != 0)\n");fflush(stdout);
         return rv;
     }
 
     if (async) {
+        printf("Done with recvInstallSnapshot (async == true)\n");fflush(stdout);
         return 0;
     }
 
@@ -96,9 +99,11 @@ reply:
     rv = r->io->send(r->io, req, &message, installSnapshotSendCb);
     if (rv != 0) {
         raft_free(req);
+        printf("Done with recvInstallSnapshot (second rv != 0)\n");fflush(stdout);
         return rv;
     }
 
+    printf("Done with recvInstallSnapshot\n");fflush(stdout);
     return 0;
 }
 

@@ -712,6 +712,61 @@ int logAcquire(struct raft_log *l,
     return 0;
 }
 
+int logAcquireMax(struct raft_log *l,
+               const raft_index index,
+               struct raft_entry *entries[],
+               unsigned *n,
+               unsigned max)
+{
+    size_t i;
+    size_t j;
+
+    assert(l != NULL);
+    assert(index > 0);
+    assert(entries != NULL);
+    assert(n != NULL);
+
+    /* Get the array index of the first entry to acquire. */
+    i = locateEntry(l, index);
+
+    if (i == l->size) {
+        *n = 0;
+        *entries = NULL;
+        return 0;
+    }
+
+    if (i < l->back) {
+        /* The last entry does not wrap with respect to i, so the number of
+         * entries is simply the length of the range [i...l->back). */
+        *n = (unsigned)(l->back - i);
+    } else {
+        /* The last entry wraps with respect to i, so the number of entries is
+         * the sum of the lengths of the ranges [i...l->size) and [0...l->back),
+         * which is l->size - i + l->back.*/
+        *n = (unsigned)(l->size - i + l->back);
+    }
+
+    assert(*n > 0);
+
+    if (*n > max) {
+        *n = max;
+    }
+
+    *entries = raft_calloc(*n, sizeof **entries);
+    if (*entries == NULL) {
+        return RAFT_NOMEM;
+    }
+
+    for (j = 0; j < *n; j++) {
+        size_t k = (i + j) % l->size;
+        struct raft_entry *entry = &(*entries)[j];
+        *entry = l->entries[k];
+        refsIncr(l, entry->term, index + j);
+    }
+
+    return 0;
+}
+
 /* Return true if the given batch is referenced by any entry currently in the
  * log. */
 static bool isBatchReferenced(struct raft_log *l, const void *batch)

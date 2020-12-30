@@ -53,6 +53,9 @@ static void sendAppendEntriesCb(struct raft_io_send *send, const int status)
 
     if (r->state == RAFT_LEADER && i < r->configuration.n) {
         if (status != 0) {
+            printf("failed to send append entries to server %llu: %s",
+                   req->server_id, raft_strerror(status));fflush(stdout);
+
             tracef("failed to send append entries to server %u: %s",
                    req->server_id, raft_strerror(status));
             /* Go back to probe mode. */
@@ -96,7 +99,8 @@ static int sendAppendEntries(struct raft *r,
     args->prev_log_term = prev_term;
 
     /* TODO: implement a limit to the total size of the entries being sent */
-    rv = logAcquire(&r->log, next_index, &args->entries, &args->n_entries);
+    rv = logAcquireMax(&r->log, next_index, &args->entries, &args->n_entries, 100);
+    //rv = logAcquire(&r->log, next_index, &args->entries, &args->n_entries);
     if (rv != 0) {
         goto err;
     }
@@ -111,6 +115,8 @@ static int sendAppendEntries(struct raft *r,
      */
     args->leader_commit = r->commit_index;
 
+    printf("send %u entries starting at %llu to server %llu (last index %llu)\n",
+           args->n_entries, args->prev_log_index, server->id, logLastIndex(&r->log));fflush(stdout);
     tracef("send %u entries starting at %llu to server %u (last index %llu)",
            args->n_entries, args->prev_log_index, server->id,
            logLastIndex(&r->log));
@@ -237,6 +243,8 @@ static void sendSnapshotGetCb(struct raft_io_snapshot_get *get,
     req->snapshot = snapshot;
     req->send.data = req;
 
+    printf("sending snapshot with last index %llu to %llu", snapshot->index,
+           server->id);fflush(stdout);
     tracef("sending snapshot with last index %llu to %u", snapshot->index,
            server->id);
 
@@ -308,7 +316,9 @@ int replicationProgress(struct raft *r, unsigned i)
     assert(server->id != r->id);
     assert(next_index >= 1);
 
-    if (!progressShouldReplicate(r, i)) {
+    bool shouldReplicate = progressShouldReplicate(r, i);
+    printf("progressShouldReplicate %llu: %d\n", server->id, shouldReplicate);fflush(stdout);
+        if (!shouldReplicate) {
         return 0;
     }
 
@@ -344,6 +354,7 @@ int replicationProgress(struct raft *r, unsigned i)
         /* If the entry is not anymore in our log, send the last snapshot. */
         if (prev_term == 0) {
             assert(prev_index < snapshot_index);
+            printf("missing entry at index %lld -> send snapshot to %llu", prev_index, server->id);fflush(stdout);
             tracef("missing entry at index %lld -> send snapshot", prev_index);
             goto send_snapshot;
         }
@@ -480,6 +491,8 @@ static void appendLeaderCb(struct raft_io_append *req, int status)
             (struct raft_apply *)getRequest(r, request->index, RAFT_COMMAND);
         if (apply != NULL) {
             if (apply->cb != NULL) {
+                printf("cb called by appendLeaderCb\n"); fflush(stdout);
+
                 apply->cb(apply, status, NULL);
             }
         }
@@ -659,6 +672,7 @@ int replicationUpdate(struct raft *r,
                       const struct raft_server *server,
                       const struct raft_append_entries_result *result)
 {
+    printf("called replicationUpdate for %llu\n", server->id);fflush(stdout);
     bool is_being_promoted;
     raft_index last_index;
     unsigned i;
@@ -1157,6 +1171,18 @@ static void installSnapshotCb(struct raft_io_snapshot_put *req, int status)
     struct raft_snapshot *snapshot = &request->snapshot;
     struct raft_append_entries_result result;
     int rv;
+    printf("installSnapshotCb called\n"); fflush(stdout);
+    if (r == NULL ){
+        printf("In installSnapshotCb the leader address is not set\n"); fflush(stdout);
+        return;
+    }
+
+    if (r->state != RAFT_FOLLOWER){
+        printf("In installSnapshotCb this is not a follower but a %d\n", r->state); fflush(stdout);
+        return;
+    }
+
+    printf("In installSnapshotCb the leader address is %s\n", r->follower_state.current_leader.address); fflush(stdout);
 
     r->snapshot.put.data = NULL;
 
@@ -1198,16 +1224,19 @@ static void installSnapshotCb(struct raft_io_snapshot_put *req, int status)
 discard:
     /* In case of error we must also free the snapshot data buffer and free the
      * configuration. */
+    printf("You do not say.... leader address %s\n", r->follower_state.current_leader.address); fflush(stdout);
     raft_free(snapshot->bufs[0].base);
     raft_configuration_close(&snapshot->configuration);
 
 respond:
     if (r->state != RAFT_UNAVAILABLE) {
         result.last_log_index = r->last_stored;
+        printf("Leader address %s\n", r->follower_state.current_leader.address); fflush(stdout);
         sendAppendEntriesResult(r, &result);
     }
 
     raft_free(request);
+    printf("Done with installSnapshotCb called\n"); fflush(stdout);
 }
 
 int replicationInstallSnapshot(struct raft *r,
@@ -1215,6 +1244,8 @@ int replicationInstallSnapshot(struct raft *r,
                                raft_index *rejected,
                                bool *async)
 {
+    printf("replicationInstallSnapshot called\n"); fflush(stdout);
+
     struct recvInstallSnapshot *request;
     struct raft_snapshot *snapshot;
     raft_term local_term;
@@ -1276,10 +1307,14 @@ int replicationInstallSnapshot(struct raft *r,
 
     assert(r->snapshot.put.data == NULL);
     r->snapshot.put.data = request;
+    printf("leader address is here: %s\n", request->raft->follower_state.current_leader.address); fflush(stdout);
+    // This is where the barrier is setup!
+    printf("Calling snapshot_put from replicationInstallSnapshot\n"); fflush(stdout);
     rv = r->io->snapshot_put(r->io,
                              0 /* zero trailing means replace everything */,
                              &r->snapshot.put, snapshot, installSnapshotCb);
     if (rv != 0) {
+        printf("Got an error here!\n"); fflush(stdout);
         goto err_after_bufs_alloc;
     }
 
@@ -1309,6 +1344,7 @@ static int applyCommand(struct raft *r,
     }
     req = (struct raft_apply *)getRequest(r, index, RAFT_COMMAND);
     if (req != NULL && req->cb != NULL) {
+        printf("cb called by applyCommand\n"); fflush(stdout);
         req->cb(req, 0, result);
     }
     return 0;
@@ -1320,6 +1356,7 @@ static void applyBarrier(struct raft *r, const raft_index index)
     struct raft_barrier *req;
     req = (struct raft_barrier *)getRequest(r, index, RAFT_BARRIER);
     if (req != NULL && req->cb != NULL) {
+        printf("cb called by applyBarrier\n"); fflush(stdout);
         req->cb(req, 0);
     }
 }
@@ -1360,6 +1397,8 @@ static void applyChange(struct raft *r, const raft_index index)
         }
 
         if (req != NULL && req->cb != NULL) {
+            printf("cb called by applyChange\n"); fflush(stdout);
+
             req->cb(req, 0);
         }
     }
@@ -1437,6 +1476,7 @@ static int takeSnapshot(struct raft *r)
 
     assert(r->snapshot.put.data == NULL);
     r->snapshot.put.data = r;
+    printf("Calling snapshot_put from takeSnapshot\n"); fflush(stdout);
     rv = r->io->snapshot_put(r->io, r->snapshot.trailing, &r->snapshot.put,
                              snapshot, takeSnapshotCb);
     if (rv != 0) {
