@@ -120,7 +120,9 @@ static void uvAppendFinishRequestsInQueue(struct uv *uv, queue *q, int status)
         append = QUEUE_DATA(head, struct uvAppend, queue);
         QUEUE_REMOVE(head);
         req = append->req;
+        printf("About to free %p\n", (void*)append); fflush(stdout);
         HeapFree(append);
+        uv->io->appends--;
         req->cb(req, status);
     }
 }
@@ -627,11 +629,15 @@ int UvAppend(struct raft_io *io,
     assert(!uv->closing);
 
     append = HeapMalloc(sizeof *append);
+    printf("Appends is %ld mem address %p\n", io->appends, (void*)append); fflush(stdout);
+    io->appends++;
     if (append == NULL) {
         rv = RAFT_NOMEM;
         goto err;
     }
     append->req = req;
+    printf("Req in append is %p\n", (void*)append->req); fflush(stdout);
+
     append->entries = entries;
     append->n = n;
     req->cb = cb;
@@ -654,6 +660,7 @@ int UvAppend(struct raft_io *io,
 
 err_after_req_alloc:
     HeapFree(append);
+    io->appends--;
 err:
     assert(rv != 0);
     return rv;

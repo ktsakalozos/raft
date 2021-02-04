@@ -17,11 +17,13 @@ int membershipCanChangeConfiguration(struct raft *r)
     }
 
     if (r->configuration_uncommitted_index != 0) {
+        printf("have uncommited index\n"); fflush(stdout);
         rv = RAFT_CANTCHANGE;
         goto err;
     }
 
     if (r->leader_state.promotee_id != 0) {
+        printf("have promotee_id not zero\n"); fflush(stdout);
         rv = RAFT_CANTCHANGE;
         goto err;
     }

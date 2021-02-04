@@ -457,6 +457,7 @@ static void uvSnapshotPutFinish(struct uvSnapshotPut *put)
     assert(uv->snapshot_put_work.data == NULL);
     HeapFree(put->meta.bufs[1].base);
     HeapFree(put);
+    uv->io->put_snapshots--;
     printf("==========> Callling CB\n"); fflush(stdout);
     req->cb(req, status);
     printf("<========== Done\n"); fflush(stdout);
@@ -546,10 +547,11 @@ int UvSnapshotPut(struct raft_io *io,
     assert(!uv->closing);
     assert(uv->snapshot_put_work.data == NULL);
 
-    printf("put snapshot at %lld, keeping %d\n", snapshot->index, trailing);fflush(stdout);
     tracef("put snapshot at %lld, keeping %d", snapshot->index, trailing);
 
     put = HeapMalloc(sizeof *put);
+    printf("put snapshot at %lld, keeping %d, pending puts %lu\n", snapshot->index, trailing, io->put_snapshots);fflush(stdout);
+    io->put_snapshots++;
     if (put == NULL) {
         rv = RAFT_NOMEM;
         goto err;
@@ -607,6 +609,7 @@ err_after_configuration_encode:
     HeapFree(put->meta.bufs[1].base);
 err_after_req_alloc:
     HeapFree(put);
+    io->put_snapshots--;
 err:
     assert(rv != 0);
     printf("Done with UvSnapshotPut called (free error)\n"); fflush(stdout);
@@ -658,6 +661,7 @@ static void uvSnapshotGetAfterWorkCb(uv_work_t *work, int status)
     assert(status == 0);
     QUEUE_REMOVE(&get->queue);
     HeapFree(get);
+    uv->io->take_snapshots--;
     printf("cb called by uvSnapshotGetAfterWorkCb\n"); fflush(stdout);
 
     req->cb(req, snapshot, req_status);
@@ -678,6 +682,8 @@ int UvSnapshotGet(struct raft_io *io,
     assert(!uv->closing);
 
     get = HeapMalloc(sizeof *get);
+    printf("Take snapshots is %ld", io->take_snapshots); fflush(stdout);
+    io->take_snapshots++;
     if (get == NULL) {
         rv = RAFT_NOMEM;
         goto err;
@@ -709,6 +715,7 @@ err_after_snapshot_alloc:
     HeapFree(get->snapshot);
 err_after_req_alloc:
     HeapFree(get);
+    io->take_snapshots--;
 err:
     assert(rv != 0);
     return rv;

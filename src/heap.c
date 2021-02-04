@@ -92,6 +92,7 @@ void *HeapMalloc(size_t size)
 
 void HeapFree(void *ptr)
 {
+    //printf("Freeing %p\n", ptr); fflush(stdout);
     if (ptr == NULL) {
         return;
     }

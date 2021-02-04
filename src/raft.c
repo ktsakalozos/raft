@@ -31,6 +31,9 @@ int raft_init(struct raft *r,
 {
     int rv;
     assert(r != NULL);
+    r->current_heartbeat = 0;
+    r->ops_in_current_heartbeat = 0;
+    r->ops_limit_per_heartbeat = 1;
     r->io = io;
     r->io->data = r;
     r->fsm = fsm;

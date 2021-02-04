@@ -36,6 +36,26 @@ int raft_apply(struct raft *r,
         goto err;
     }
 
+    raft_time now = r->io->time(r->io);
+    raft_time heartbeat = now / r->heartbeat_timeout;
+    printf("heartbeat %lld\n", heartbeat);
+    fflush(stdout);
+    //if (r->current_heartbeat < heartbeat) {
+        //r->current_heartbeat = heartbeat;
+        //r->ops_in_current_heartbeat = 1;
+    //}
+    printf("ops_in_current_heartbeat %ld\n", r->ops_in_current_heartbeat);
+    printf("ops_limit_per_heartbeat %ld\n", r->ops_limit_per_heartbeat);
+    printf("current_heartbeat %lld\n", r->current_heartbeat);
+    fflush(stdout);
+/*    if (r->ops_in_current_heartbeat > r->ops_limit_per_heartbeat) {
+        rv = RAFT_BUSY;
+        ErrMsgFromCode(r->errmsg, rv);
+        goto err;
+    }
+    */
+    r->ops_in_current_heartbeat++;
+
     /* Index of the first entry being appended. */
     index = logLastIndex(&r->log) + 1;
     tracef("%u commands starting at %lld", n, index);

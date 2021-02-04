@@ -113,6 +113,7 @@ static void convertClearLeader(struct raft *r)
 /* Clear the current state */
 static void convertClear(struct raft *r)
 {
+    printf("convertClear called\n");fflush(stdout);
     assert(r->state == RAFT_UNAVAILABLE || r->state == RAFT_FOLLOWER ||
            r->state == RAFT_CANDIDATE || r->state == RAFT_LEADER);
     switch (r->state) {
@@ -130,6 +131,7 @@ static void convertClear(struct raft *r)
 
 void convertToFollower(struct raft *r)
 {
+    printf("convertToFollower called\n");fflush(stdout);
     convertClear(r);
     convertSetState(r, RAFT_FOLLOWER);
 

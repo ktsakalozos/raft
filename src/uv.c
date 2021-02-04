@@ -552,6 +552,11 @@ int raft_uv_init(struct raft_io *io,
                  const char *dir,
                  struct raft_uv_transport *transport)
 {
+    printf("!!!Initialising raft_uv_init\n");fflush(stdout);
+    io->appends = 0;
+    io->take_snapshots = 0;
+    io->put_snapshots = 0;
+
     struct uv *uv;
     void *data;
     int rv;

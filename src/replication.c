@@ -834,6 +834,7 @@ struct appendFollower
 
 static void appendFollowerCb(struct raft_io_append *req, int status)
 {
+    printf("Calling appendFollowerCb for %p\n", (void*)req); fflush(stdout);
     struct appendFollower *request = req->data;
     struct raft *r = request->raft;
     struct raft_append_entries *args = &request->args;
@@ -918,6 +919,7 @@ out:
                request->args.n_entries);
 
     raft_free(request);
+    printf("Done calling appendFollowerCb for %p\n", (void*)req); fflush(stdout);
 }
 
 /* Check the log matching property against an incoming AppendEntries request.
@@ -1448,6 +1450,7 @@ out:
 
 static int takeSnapshot(struct raft *r)
 {
+    printf("Calling takeSnapshot\n"); fflush(stdout);
     struct raft_snapshot *snapshot;
     unsigned i;
     int rv;
@@ -1464,6 +1467,7 @@ static int takeSnapshot(struct raft *r)
     }
 
     snapshot->configuration_index = r->configuration_index;
+    printf("Done with configurationCopy\n"); fflush(stdout);
 
     rv = r->fsm->snapshot(r->fsm, &snapshot->bufs, &snapshot->n_bufs);
     if (rv != 0) {
@@ -1474,6 +1478,12 @@ static int takeSnapshot(struct raft *r)
         goto abort_after_config_copy;
     }
 
+    long long unsigned size = 0;
+    for (i = 0; i < snapshot->n_bufs; i++) {
+        size += sizeof(snapshot->bufs[i].base);
+    }
+    printf("In takeSnapshot bufs = %d  and size %lld\n", snapshot->n_bufs, size); fflush(stdout);
+
     assert(r->snapshot.put.data == NULL);
     r->snapshot.put.data = r;
     printf("Calling snapshot_put from takeSnapshot\n"); fflush(stdout);
@@ -1483,6 +1493,7 @@ static int takeSnapshot(struct raft *r)
         goto abort_after_fsm_snapshot;
     }
 
+    printf("Done calling takeSnapshot (0)\n"); fflush(stdout);
     return 0;
 
 abort_after_fsm_snapshot:
@@ -1494,6 +1505,7 @@ abort_after_config_copy:
     raft_configuration_close(&snapshot->configuration);
 abort:
     r->snapshot.pending.term = 0;
+    printf("Done calling takeSnapshot (!0)\n"); fflush(stdout);
     return rv;
 }
 

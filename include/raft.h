@@ -442,6 +442,15 @@ typedef void (*raft_io_close_cb)(struct raft_io *io);
 
 struct raft_io
 {
+
+    /*
+     * Some debug metrics!
+    * */
+    long int appends;
+    long int take_snapshots;
+    long int put_snapshots;
+    /**************************************/
+
     int version;
     void *data;
     void *impl;
@@ -540,6 +549,10 @@ struct raft
     struct raft_fsm *fsm;       /* User-defined FSM to apply commands to. */
     raft_id id;                 /* Server ID of this raft instance. */
     char *address;              /* Server address of this raft instance. */
+
+    raft_time current_heartbeat;
+    long ops_in_current_heartbeat;
+    long ops_limit_per_heartbeat;
 
     /*
      * Cache of the server's persistent state, updated on stable storage before
